@@ -50,9 +50,9 @@ See `docker-compose.yaml` for complete list of configurable options.
 
 ## 📂 Volumes
 
-- `./rootfs/data/focalboard` - Data storage
-- `./rootfs/config/focalboard` - Data storage
-- `./rootfs/data/db/postgres/focalboard` - Data storage
+- `./volumes/data/focalboard` - Data storage
+- `./volumes/config/focalboard` - Data storage
+- `./volumes/data/db/postgres/focalboard` - Data storage
 
 ## 🔐 Security
 
