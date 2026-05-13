@@ -1,4 +1,6 @@
 # nginx proxy address - http://172.17.0.1:8092
+# NOTE: focalboard was discontinued by Mattermost on 2023-09-15.
+# The image is no longer maintained. Consider migrating to mattermost or another board tool.
 
 name: focalboard
 x-logging: &default-logging
