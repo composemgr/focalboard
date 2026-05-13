@@ -16,10 +16,14 @@ services:
     logging: *default-logging
     networks:
       - focalboard
+      - proxy
+      - cloudflare
     ports:
       - "172.17.0.1:8092:8000"
     environment:
       TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: focalboard-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     volumes:
       - ./volumes/data/focalboard:/data
     depends_on:
@@ -29,6 +33,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://focalboard-app:8000'
+      - 'cloudflare.hostname=focalboard.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.focalboard-app.entrypoints=http'
+      - 'traefik.http.routers.focalboard-app-secure.tls=true'
+      - 'traefik.http.routers.focalboard-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.focalboard-app-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.focalboard-app.middlewares=focalboard-app-https-redirect'
+      - 'traefik.http.routers.focalboard-app-secure.entrypoints=https'
+      - 'traefik.http.routers.focalboard-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.focalboard-app-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.focalboard-app-secure.service=focalboard-app'
+      - 'traefik.http.services.focalboard-app.loadbalancer.server.port=8000'
 
   focalboard-db:
     image: postgres:latest
@@ -43,6 +63,7 @@ services:
       POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-focalboard}
       POSTGRES_USER: ${DB_USER_NAME:-focalboard}
       POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+      CONTAINER_NAME: focalboard-db
     volumes:
       - ./volumes/data/db/postgres/focalboard:/var/lib/postgresql/data
     healthcheck:
@@ -55,3 +76,7 @@ networks:
   focalboard:
     name: focalboard
     external: false
+  proxy:
+    external: true
+  cloudflare:
+    external: true
