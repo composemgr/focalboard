@@ -1,84 +1,65 @@
-# nginx proxy address - http://172.17.0.1:8092
-# NOTE: focalboard was discontinued by Mattermost on 2023-09-15.
-# The image is no longer maintained. Consider migrating to mattermost or another board tool.
+# nginx proxy address - http://172.17.0.1:64175
 
 name: focalboard
 x-logging: &default-logging
-  driver: json-file
   options:
-    max-size: "5m"
-    max-file: "1"
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
 
 services:
   focalboard:
     image: mattermost/focalboard:latest
-    pull_policy: always
     container_name: focalboard-app
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
     restart: always
+    pull_policy: always
     logging: *default-logging
-    networks:
-      - focalboard
-      - proxy
-      - cloudflare
-    ports:
-      - "172.17.0.1:8092:8000"
     environment:
       TZ: ${TZ:-America/New_York}
       CONTAINER_NAME: focalboard-app
       HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+    ports:
+      - '172.17.0.1:64175:8000'
     volumes:
-      - ./volumes/data/focalboard:/data
+      - './volumes/data/focalboard:/data:z'
     depends_on:
-      - focalboard-db
+      db:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000']
       interval: 30s
       timeout: 10s
       retries: 3
-    labels:
-      - 'traefik.enable=true'
-      - 'cloudflare.enable=true'
-      - 'traefik.docker.network=proxy'
-      - 'cloudflare.service=http://focalboard-app:8000'
-      - 'cloudflare.hostname=focalboard.${CLOUDFLARE_ZONE_NAME:-}'
-      - 'traefik.http.routers.focalboard-app.entrypoints=http'
-      - 'traefik.http.routers.focalboard-app-secure.tls=true'
-      - 'traefik.http.routers.focalboard-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
-      - 'traefik.http.middlewares.focalboard-app-https-redirect.redirectscheme.scheme=https'
-      - 'traefik.http.routers.focalboard-app.middlewares=focalboard-app-https-redirect'
-      - 'traefik.http.routers.focalboard-app-secure.entrypoints=https'
-      - 'traefik.http.routers.focalboard-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
-      - 'traefik.http.routers.focalboard-app-secure.tls.certresolver=cloudflare'
-      - 'traefik.http.routers.focalboard-app-secure.service=focalboard-app'
-      - 'traefik.http.services.focalboard-app.loadbalancer.server.port=8000'
-
-  focalboard-db:
-    image: postgres:latest
-    pull_policy: always
-    container_name: focalboard-db
-    restart: always
-    logging: *default-logging
     networks:
       - focalboard
+
+  db:
+    image: postgres:latest
+    container_name: focalboard-db
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: focalboard-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
     environment:
       TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: focalboard-db
       POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-focalboard}
       POSTGRES_USER: ${DB_USER_NAME:-focalboard}
-      POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
-      CONTAINER_NAME: focalboard-db
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-replace-with-a-random-password}
     volumes:
-      - ./volumes/data/db/postgres/focalboard:/var/lib/postgresql/data
+      - './volumes/db/postgres/focalboard:/var/lib/postgresql/data:z'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - focalboard
 
 networks:
   focalboard:
     name: focalboard
     external: false
-  proxy:
-    external: true
-  cloudflare:
-    external: true

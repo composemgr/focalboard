@@ -1,0 +1,68 @@
+name: focalboard
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+services:
+  focalboard:
+    image: mattermost/focalboard:latest
+    container_name: focalboard-app
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: focalboard-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+    volumes:
+      - './volumes/data/focalboard:/data:z'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - 'cloudflare.enable=true'
+      - 'cloudflare.service=http://focalboard-app:8000'
+      - 'cloudflare.hostname=${BASE_HOST_NAME:-$HOSTNAME}'
+    networks:
+      - focalboard
+      - cloudflare
+
+  db:
+    image: postgres:latest
+    container_name: focalboard-db
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: focalboard-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: focalboard-db
+      POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-focalboard}
+      POSTGRES_USER: ${DB_USER_NAME:-focalboard}
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-replace-with-a-random-password}
+    volumes:
+      - './volumes/db/postgres/focalboard:/var/lib/postgresql/data:z'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - focalboard
+
+networks:
+  focalboard:
+    name: focalboard
+    external: false
+  cloudflare:
+    external: true
